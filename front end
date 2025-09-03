@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Processor</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(20px);
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            font-size: 3.5em;
+            margin-bottom: 40px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 700;
+        }
+
+        .sidebar {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 8px 30px rgba(102, 126, 234, 0.3);
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .file-input-wrapper:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(102, 126, 234, 0.4);
+        }
+
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        select {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 30px;
+            background: white;
+            color: #333;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 500;
+            min-width: 200px;
+        }
+
+        select:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .image-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-top: 40px;
+        }
+
+        @media (max-width: 1024px) {
+            .image-container {
+                grid-template-columns: 1fr;
+            }
+            .sidebar {
+                flex-direction: column;
+            }
+        }
+
+        .image-section {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .image-section:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.15);
+        }
+
+        .image-section h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .image-section img, .image-section canvas {
+            width: 100%;
+            height: auto;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .image-section img:hover, .image-section canvas:hover {
+            transform: scale(1.02);
+        }
+
+        .placeholder {
+            text-align: center;
+            padding: 80px 20px;
+            color: #999;
+            border: 3px dashed #ddd;
+            border-radius: 15px;
+            background: linear-gradient(45deg, #f8f9fa, #e9ecef);
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .loading {
+            text-align: center;
+            color: #667eea;
+            font-size: 20px;
+            margin: 30px 0;
+            font-weight: 600;
+        }
+
+        .error {
+            color: #e74c3c;
+            text-align: center;
+            margin: 30px 0;
+            padding: 20px;
+            background: rgba(231, 76, 60, 0.1);
+            border-radius: 15px;
+            font-weight: 500;
+        }
+
+        .processing-info {
+            background: rgba(102, 126, 234, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            font-size: 14px;
+            color: #555;
+            border-left: 4px solid #667eea;
+        }
+
+        .technique-description {
+            font-style: italic;
+            color: #666;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Image Processor</h1>
+
+        <div class="sidebar">
+            <label class="file-input-wrapper">
+                📁 Choose an image file
+                <input type="file" id="imageInput" accept="image/*">
+            </label>
+
+            <select id="techniqueSelect">
+                <option value="Thresholding">Thresholding</option>
+                <option value="adaptive">Adaptive Threshold</option>
+                <option value="obtu">Otsu Threshold</option>
+                <option value="filtering">Filtering</option>
+                <option value="blur">Blur</option>
+                <option value="medianBlurring">Median Blurring</option>
+                <option value="gradients">Gradients</option>
+                <option value="EdgeDetection">Edge Detection</option>
+                <option value="findcontours">Find Contours</option>
+                <option value="Drawcontours">Draw Contours</option>
+                <option value="templatematching">Template Matching</option>
+            </select>
+        </div>
+
+        <div class="image-container">
+            <div class="image-section">
+                <h3>Original Image</h3>
+                <img id="originalImage" style="display: none;" alt="Original image">
+                <div id="originalPlaceholder" class="placeholder">
+                    🖼️ Upload an image to get started
+                </div>
+            </div>
+
+            <div class="image-section">
+                <h3 id="processedTitle">Processed Image: Thresholding</h3>
+                <canvas id="processedCanvas" style="display: none;"></canvas>
+                <div id="processedPlaceholder" class="placeholder">
+                    ⚡ Processed image will appear here
+                </div>
+                <div id="processingInfo" class="processing-info" style="display: none;"></div>
+                <div id="techniqueDescription" class="technique-description"></div>
+            </div>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">🔄 Processing image...</div>
+        <div id="error" class="error" style="display: none;"></div>
+    </div>
+
+    <script>
+        class ImageProcessor {
+            constructor() {
+                this.setupEventListeners();
+                this.currentImage = null;
+                this.updateTechniqueDescription();
+            }
+
+            setupEventListeners() {
+                const imageInput = document.getElementById('imageInput');
+                const techniqueSelect = document.getElementById('techniqueSelect');
+
+                imageInput.addEventListener('change', (e) => this.handleImageUpload(e));
+                techniqueSelect.addEventListener('change', () => {
+                    this.updateTechniqueDescription();
+                    this.processImage();
+                });
+            }
+
+            updateTechniqueDescription() {
+                const technique = document.getElementById('techniqueSelect').value;
+                const descElement = document.getElementById('techniqueDescription');
+
+                const descriptions = {
+                    'Thresholding': 'Simple binary thresholding - converts grayscale to black and white',
+                    'adaptive': 'Adaptive threshold - threshold varies across the image based on local area',
+                    'obtu': 'Otsu\'s method - automatically determines optimal threshold value',
+                    'filtering': '2D convolution filter - applies custom kernel for image enhancement',
+                    'blur': 'Gaussian blur - smooths image by reducing noise and detail',
+                    'medianBlurring': 'Median filter - reduces noise while preserving edges',
+                    'gradients': 'Image gradients - shows intensity changes and edges',
+                    'EdgeDetection': 'Canny edge detection - finds edges with double thresholding',
+                    'findcontours': 'Contour detection - finds object boundaries in binary image',
+                    'Drawcontours': 'Contour visualization - draws detected contours on image',
+                    'templatematching': 'Template matching - finds template patterns in the image'
+                };
+
+                descElement.textContent = descriptions[technique] || '';
+            }
+
+            handleImageUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        this.currentImage = img;
+                        this.displayOriginalImage(img);
+                        this.processImage();
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+
+            displayOriginalImage(img) {
+                const originalImg = document.getElementById('originalImage');
+                const placeholder = document.getElementById('originalPlaceholder');
+
+                originalImg.src = img.src;
+                originalImg.style.display = 'block';
+                placeholder.style.display = 'none';
+            }
+
+            async processImage() {
+                if (!this.currentImage) return;
+
+                const technique = document.getElementById('techniqueSelect').value;
+                const loading = document.getElementById('loading');
+                const error = document.getElementById('error');
+                const processingInfo = document.getElementById('processingInfo');
+
+                loading.style.display = 'block';
+                error.style.display = 'none';
+                processingInfo.style.display = 'none';
+
+                try {
+                    let result;
+                    let info = '';
+
+                    switch(technique) {
+                        case 'Thresholding':
+                            result = await this.thresholding();
+                            info = 'Applied binary threshold at value 127';
+                            break;
+                        case 'adaptive':
+                            result = await this.adaptiveThreshold();
+                            info = 'Applied adaptive threshold with 11x11 kernel';
+                            break;
+                        case 'obtu':
+                            result = await this.otsuThreshold();
+                            info = 'Applied Otsu\'s automatic threshold selection';
+                            break;
+                        case 'filtering':
+                            result = await this.filtering();
+                            info = 'Applied sharpening filter using convolution';
+                            break;
+                        case 'blur':
+                            result = await this.blur();
+                            info = 'Applied Gaussian blur with sigma = 2';
+                            break;
+                        case 'medianBlurring':
+                            result = await this.medianBlur();
+                            info = 'Applied 5x5 median filter for noise reduction';
+                            break;
+                        case 'gradients':
+                            result = await this.gradients();
+                            info = 'Computed image gradients using Sobel operators';
+                            break;
+                        case 'EdgeDetection':
+                            result = await this.edgeDetection();
+                            info = 'Applied Canny edge detection';
+                            break;
+                        case 'findcontours':
+                            result = await this.findContours();
+                            info = 'Converted to binary for contour detection';
+                            break;
+                        case 'Drawcontours':
+                            result = await this.drawContours();
+                            info = 'Detected and drawn contours in green';
+                            break;
+                        case 'templatematching':
+                            result = await this.templateMatching();
+                            info = 'Template matching using normalized correlation';
+                            break;
+                        default:
+                            result = this.currentImage;
+                    }
+
+                    this.displayProcessedImage(result, technique);
+                    if (info) {
+                        processingInfo.textContent = info;
+                        processingInfo.style.display = 'block';
+                    }
+
+                } catch (err) {
+                    error.textContent = `Error processing image: ${err.message}`;
+                    error.style.display = 'block';
+                } finally {
+                    loading.style.display = 'none';
+                }
+            }
+
+            getImageData() {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = this.currentImage.width;
+                canvas.height = this.currentImage.height;
+                ctx.drawImage(this.currentImage, 0, 0);
+                return { canvas, ctx, imageData: ctx.getImageData(0, 0, canvas.width, canvas.height) };
+            }
+
+            async thresholding() {
+                return new Promise((resolve) => {
+                    const { canvas, ctx, imageData } = this.getImageData();
+                    const data = imageData.data;
+
+                    for (let i = 0; i < data.length; i += 4) {
+                        const gray = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                        const binary = gray > 127 ? 255 : 0;
+                        data[i] = data[i + 1] = data[i + 2] = binary;
+                    }
+
+                    ctx.putImageData(imageData, 0, 0);
+                    resolve(canvas);
+                });
+            }
+
+            async adaptiveThreshold() {
+                return new Promise((resolve) => {
+                    const { canvas, ctx, imageData } = this.getImageData();
+                    const data = imageData.data;
+                    const width = canvas.width;
+                    const height = canvas.height;
+                    const kernelSize = 11;
+                    const offset = Math.floor(kernelSize / 2);
+
+                    const processed = new Uint8ClampedArray(data.length);
+
+                    for (let y = 0; y < height; y++) {
+                        for (let x = 0; x < width; x++) {
+                            let sum = 0;
+                            let count = 0;
+
+                            // Calculate local mean
+                            for (let ky = -offset; ky <= offset; ky++) {
+                                for (let kx = -offset; kx <= offset; kx++) {
+                                    const ny = y + ky;
+                                    const nx = x + kx;
+                                    if (ny >= 0 && ny < height && nx >= 0 && nx < width) {
+                                        const idx = (ny * width + nx) * 4;
+                                        sum += (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+                                        count++;
+                                    }
+                                }
+                            }
+
+                            const localMean = sum / count;
+                            const idx = (y * width + x) * 4;
+                            const gray = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+                            const binary = gray > localMean - 10 ? 255 : 0;
+
+                            processed[idx] = processed[idx + 1] = processed[idx + 2] = binary;
+                            processed[idx + 3] = 255;
+                        }
+                    }
+
+                    ctx.putImageData(new ImageData(processed, width, height), 0, 0);
+                    resolve(canvas);
+                });
+            }
+
+            async otsuThreshold() {
+                return new Promise((resolve) => {
+                    const { canvas, ctx, imageData } = this.getImageData();
+                    const data = imageData.data;
+
+                    // Calculate histogram
+                    const histogram = new Array(256).fill(0);
+                    const total = data.length / 4;
+
+                    for (let i = 0; i < data.length; i += 4) {
+                        const gray = Math.round((data[i] + data[i + 1] + data[i + 2]) / 3);
+                        histogram[gray]++;
+                    }
+
+                    // Find Otsu threshold
+                    let bestThreshold = 0;
+                    let maxVariance = 0;
+
+                    for (let t = 0; t < 256; t++) {
+                        let w0 = 0, w1 = 0, sum0 = 0, sum1 = 0;
+
+                        for (let i = 0; i <= t; i++) {
+                            w0 += histogram[i];
+                            sum0 += i * histogram[i];
+                        }
+
+                        for (let i = t + 1; i < 256; i++) {
+                            w1 += histogram[i];
+                            sum1 += i * histogram[i];
+                        }
+
+                        if (w0 === 0 || w1 === 0) continue;
+
+                        const mean0 = sum0 / w0;
+                        const mean1 = sum1 / w1;
+                        const variance = w0 * w1 * (mean0 - mean1) * (mean0 - mean1);
+
+                        if (variance > maxVariance) {
+                            maxVariance = variance;
+                            bestThreshold = t;
+                        }
+                    }
+
+                    // Apply threshold
+                    for (let i = 0; i < data.length; i += 4) {
+                        const gray = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                        const binary = gray > bestThreshold ? 255 : 0;
+                        data[i] = data[i + 1] = data[i + 2] = binary;
+                    }
+
+                    ctx.putImageData(imageData, 0, 0);
+                    resolve(canvas);
+                });
+            }
+
+            async filtering() {
+                return new Promise((resolve) => {
+                    const { canvas, ctx, imageData } = this.getImageData();
+                    const data = imageData.data;
+                    const width = canvas.width;
+                    const height = canvas.height;
+
+                    // Sharpening kernel
+                    const kernel = [
+                        [ 0, -1,  0],
+                        [-1,  5, -1],
+                        [ 0, -1,  0]
+                    ];
+
+                    const processed = new Uint8ClampedArray(data.length);
+
+                    for (let y = 1; y < height - 1; y++) {
+                        for (let x = 1; x < width - 1; x++) {
+                            for (let c = 0; c < 3; c++) {
+                                let sum = 0;
+                                for (let ky = -1; ky <= 1; ky++) {
+                                    for (let kx = -1; kx <= 1; kx++) {
+                                        const idx = ((y + ky) * width + (x + kx)) * 4 + c;
+                                        sum += data[idx] * kernel[ky + 1][kx + 1];
+                                    }
+                                }
+                                const idx = (y * width + x) * 4 + c;
+                                processed[idx] = Math.max(0, Math.min(255, sum));
+                            }
+                            processed[(y * width + x) * 4 + 3] = 255;
+                        }
+                    }
+
+                    ctx.putImageData(new ImageData(processed, width, height), 0, 0);
+                    resolve(canvas);
+                });
+            }
+
+            async blur() {
+                return new Promise((resolve) => {
+                    const { canvas, ctx, imageData } = this.getImageData();
+                    const data = imageData.data;
+                    const width = canvas.width;
+                    const height = canvas.height;
+
+                    // Gaussian kernel
+                    const kernel = [
+                        [1, 2, 1],
+                        [2, 4, 2],
+                        [1, 2, 1]
+                    ];
+                    const kernelSum = 16;
+
+                    const processed = new Uint8ClampedArray(data.length);
+
+                    for (let y = 1; y < height - 1; y++) {
+                        for (let x = 1; x < width - 1; x++) {
+                            for (let c = 0; c < 3; c++) {
+                                let sum = 0;
+                                for (let ky = -1; ky <= 1; ky++) {
+                                    for (let kx = -1; kx <= 1; kx++) {
+                                        const idx = ((y + ky) * width + (x + kx)) * 4 + c;
+                                        sum += data[idx] * kernel[ky + 1][kx + 1];
+                                    }
+                                }
+                                const idx = (y * width + x) * 4 + c;
+                                processed[idx] = sum / kernelSum;
+                            }
+                            processed[(y * width + x) * 4 + 3] = 255;
+                        }
+                    }
+
+                    ctx.putImageData(new ImageData(processed, width, height), 0, 0);
+                    resolve(canvas);
+                });
+            }
+
+            async medianBlur() {
+                return new Promise((resolve) => {
+                    const { canvas, ctx, imageData } = this.getImageData();
+                    const data = imageData.data;
+                    const width = canvas.width;
+                    const height = canvas.height;
+                    const processed = new Uint8ClampedArray(data.length);
+
+                    for (let y = 2; y < height - 2; y++) {
+                        for (let x = 2; x < width - 2; x++) {
+                            for (let c = 0; c < 3; c++) {
+                                const values = [];
+                                for (let ky = -2; ky <= 2; ky++) {
+                                    for (let kx = -2; kx <= 2; kx++) {
+                                        const idx = ((y + ky) * width + (x + kx)) * 4 + c;
+                                        values.push(data[idx]);
+                                    }
+                                }
+                                values.sort((a, b) => a - b);
+                                const idx = (y * width + x) * 4 + c;
+                                processed[idx] = values[Math.floor(values.length / 2)];
+                            }
+                            processed[(y * width + x) * 4 + 3] = 255;
+                        }
+                    }
+
+                    ctx.putImageData(new ImageData(processed, width, height), 0, 0);
+                    resolve(canvas);
+                });
+            }
+
+            async gradients() {
+                return new Promise((resolve) => {
+                    const { canvas, ctx, imageData } = this.getImageData();
+                    const data = imageData.data;
+                    const width = canvas.width;
+                    const height = canvas.height;
+                    const processed = new Uint8ClampedArray(data.length);
+
+                    for (let y = 1; y < height - 1; y++) {
+                        for (let x = 1; x < width - 1; x++) {
+                            // Convert to grayscale first
+                            const getGray = (px, py) => {
+                                const idx = (py * width + px) * 4;
+                                return (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+                            };
+
+                            // Sobel X
+                            const gx = -getGray(x-1, y-1) + getGray(x+1, y-1) +
+                                      -2*getGray(x-1, y) + 2*getGray(x+1, y) +
+                                      -getGray(x-1, y+1) + getGray(x+1, y+1);
+
+                            // Sobel Y
+                            const gy = -getGray(x-1, y-1) - 2*getGray(x, y-1) - getGray(x+1, y-1) +
+                                       getGray(x-1, y+1) + 2*getGray(x, y+1) + getGray(x+1, y+1);
+
+                            const magnitude = Math.sqrt(gx * gx + gy * gy);
+                            const idx = (y * width + x) * 4;
+                            processed[idx] = processed[idx + 1] = processed[idx + 2] = Math.min(255, magnitude);
+                            processed[idx + 3] = 255;
+                        }
+                    }
+
+                    ctx.putImageData(new ImageData(processed, width, height), 0, 0);
+                    resolve(canvas);
+                });
+            }
+
+            async edgeDetection() {
+                // Simplified Canny edge detection
+                const gradientResult = await this.gradients();
+                const { canvas, ctx } = this.getImageData();
+
+                return new Promise((resolve) => {
+                    ctx.drawImage(gradientResult, 0, 0);
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = imageData.data;
+
+                    // Apply double threshold
+                    const lowThreshold = 50;
+                    const highThreshold = 150;
+
+                    for (let i = 0; i < data.length; i += 4) {
+                        const intensity = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                        if (intensity > highThreshold) {
+                            data[i] = data[i + 1] = data[i + 2] = 255;
+                        } else if (intensity < lowThreshold) {
+                            data[i] = data[i + 1] = data[i + 2] = 0;
+                        } else {
+                            data[i] = data[i + 1] = data[i + 2] = 128;
+                        }
+                    }
+
+                    ctx.putImageData(imageData, 0, 0);
+                    resolve(canvas);
+                });
+            }
+
+            async findContours() {
+                // Return binary image for contour detection
+                return this.thresholding();
+            }
+
+            async drawContours() {
+                return new Promise(async (resolve) => {
+                    const { canvas, ctx } = this.getImageData();
+                    ctx.drawImage(this.currentImage, 0, 0);
+
+                    // Get binary image for contour detection
+                    const binaryCanvas = await this.thresholding();
+                    const binaryCtx = binaryCanvas.getContext('2d');
+                    const binaryData = binaryCtx.getImageData(0, 0, binaryCanvas.width, binaryCanvas.height);
+
+                    // Simple contour detection using edge following
+                    ctx.strokeStyle = '#00ff00';
+                    ctx.lineWidth = 2;
+
+                    const visited = new Set();
+                    const width = binaryCanvas.width;
+                    const height = binaryCanvas.height;
+
+                    for (let y = 1; y < height - 1; y++) {
+                        for (let x = 1; x < width - 1; x++) {
+                            const idx = (y * width + x) * 4;
+                            if (binaryData.data[idx] === 255 && !visited.has(`${x},${y}`)) {
+                                // Start a new contour
+                                ctx.beginPath();
+                                ctx.moveTo(x, y);
+
+                                // Simple contour following (just draw around white pixels)
+                                for (let i = 0; i < 20 && x + i < width - 1; i++) {
+                                    const nextIdx = (y * width + (x + i)) * 4;
+                                    if (binaryData.data[nextIdx] === 255) {
+                                        ctx.lineTo(x + i, y);
+                                        visited.add(`${x + i},${y}`);
+                                    } else {
+                                        break;
+                                    }
+                                }
+                                ctx.stroke();
+                            }
+                        }
+                    }
+
+                    resolve(canvas);
+                });
+            }
+
+            async templateMatching() {
+                return new Promise((resolve) => {
+                    const { canvas, ctx, imageData } = this.getImageData();
+                    const data = imageData.data;
+                    const width = canvas.width;
+                    const height = canvas.height;
+
+                    // Create a simple template (small square pattern)
+                    const templateSize = 20;
+                    const template = [];
+
+                    // Create a simple cross template
+                    for (let ty = 0; ty < templateSize; ty++) {
+                        template[ty] = [];
+                        for (let tx = 0; tx < templateSize; tx++) {
+                            if (tx === Math.floor(templateSize/2) || ty === Math.floor(templateSize/2)) {
+                                template[ty][tx] = 255; // White cross
+                            } else {
+                                template[ty][tx] = 0; // Black background
+                            }
+                        }
+                    }
+
+                    // Draw original image
+                    ctx.drawImage(this.currentImage, 0, 0);
+
+                    let bestMatch = { x: 0, y: 0, correlation: -1 };
+
+                    // Template matching with normalized cross-correlation
+                    for (let y = 0; y <= height - templateSize; y += 5) { // Step by 5 for performance
+                        for (let x = 0; x <= width - templateSize; x += 5) {
+                            let correlation = 0;
+                            let templateSum = 0;
+                            let imageSum = 0;
+
+                            // Calculate correlation
+                            for (let ty = 0; ty < templateSize; ty++) {
+                                for (let tx = 0; tx < templateSize; tx++) {
+                                    const imgIdx = ((y + ty) * width + (x + tx)) * 4;
+                                    const imgGray = (data[imgIdx] + data[imgIdx + 1] + data[imgIdx + 2]) / 3;
+
+                                    correlation += template[ty][tx] * imgGray;
+                                    templateSum += template[ty][tx] * template[ty][tx];
+                                    imageSum += imgGray * imgGray;
+                                }
+                            }
+
+                            // Normalize correlation
+                            const normalizedCorr = correlation / Math.sqrt(templateSum * imageSum);
+
+                            if (normalizedCorr > bestMatch.correlation) {
+                                bestMatch = { x, y, correlation: normalizedCorr };
+                            }
+                        }
+                    }
+
+                    // Draw template location
+                    ctx.strokeStyle = '#ff0000';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(bestMatch.x, bestMatch.y, templateSize, templateSize);
+
+                    // Draw template in corner
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(10, 10, templateSize + 4, templateSize + 4);
+                    ctx.strokeStyle = 'black';
+                    ctx.strokeRect(10, 10, templateSize + 4, templateSize + 4);
+
+                    const tempImageData = ctx.createImageData(templateSize, templateSize);
+                    for (let ty = 0; ty < templateSize; ty++) {
+                        for (let tx = 0; tx < templateSize; tx++) {
+                            const idx = (ty * templateSize + tx) * 4;
+                            const val = template[ty][tx];
+                            tempImageData.data[idx] = val;
+                            tempImageData.data[idx + 1] = val;
+                            tempImageData.data[idx + 2] = val;
+                            tempImageData.data[idx + 3] = 255;
+                        }
+                    }
+                    ctx.putImageData(tempImageData, 12, 12);
+
+                    resolve(canvas);
+                });
+            }
+
+            displayProcessedImage(result, technique) {
+                const processedCanvas = document.getElementById('processedCanvas');
+                const processedPlaceholder = document.getElementById('processedPlaceholder');
+                const processedTitle = document.getElementById('processedTitle');
+
+                processedTitle.textContent = `Processed Image: ${technique}`;
+
+                processedCanvas.width = result.width;
+                processedCanvas.height = result.height;
+                const ctx = processedCanvas.getContext('2d');
+                ctx.drawImage(result, 0, 0);
+
+                processedCanvas.style.display = 'block';
+                processedPlaceholder.style.display = 'none';
+            }
+        }
+
+        // Initialize the application
+        window.addEventListener('DOMContentLoaded', () => {
+            new ImageProcessor();
+        });
+    </script>
+</body>
+</html>
